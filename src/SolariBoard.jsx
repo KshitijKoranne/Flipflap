@@ -299,17 +299,6 @@ function weatherGrid(w) {
   return grid;
 }
 
-function departureGrid() {
-  const grid = emptyGrid();
-  grid[0] = padRow("DEST       TIME  STATUS");
-  grid[1] = padRow("MUMBAI BOM 0645  ON TIME ");
-  grid[2] = padRow("DELHI DEL  0830  BOARDING");
-  grid[3] = padRow("TOKYO NRT  1115  DELAYED ");
-  grid[4] = padRow("NEW YRK JFK1400  ON TIME ");
-  grid[5] = padRow("LONDON LHR 1730  ON TIME ");
-  return grid;
-}
-
 function customGrid(lines) {
   const grid = emptyGrid();
   const wrapped = [];
@@ -350,10 +339,6 @@ export default function SolariBoard() {
   }, [scene, weather]);
 
   useEffect(() => {
-    if (scene === "departures") setGrid(departureGrid());
-  }, [scene]);
-
-  useEffect(() => {
     if (scene === "custom") setGrid(customGrid(customLines));
   }, [scene, customLines]);
 
@@ -362,7 +347,7 @@ export default function SolariBoard() {
     if (!autoRotate) { if (autoRef.current) clearInterval(autoRef.current); return; }
     autoRef.current = setInterval(() => {
       counterRef.current += 1;
-      const pattern = ["quote", "clock", "weather", "quote", "departures", "clock", "weather"];
+      const pattern = ["quote", "clock", "weather", "quote", "clock", "weather"];
       const scn = pattern[counterRef.current % pattern.length];
       setScene(scn);
       if (scn === "quote") fetchQuote();
@@ -386,7 +371,6 @@ export default function SolariBoard() {
     { id: "quote", label: "Quotes", color: "#d4a853" },
     { id: "clock", label: "Clock", color: "#6bba7b" },
     { id: "weather", label: "Weather", color: "#5ba4d9" },
-    { id: "departures", label: "Flights", color: "#e07850" },
     { id: "custom", label: "Custom", color: "#b07cdb" },
   ];
 
