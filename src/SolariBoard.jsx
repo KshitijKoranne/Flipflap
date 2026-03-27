@@ -1,6 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 
-const CHARS = " ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.:!?-+/,'()&@#%$";
+// ─── Config ──────────────────────────────────────────────────
+const ROWS = 6;
+const COLS = 22;
+const CHARS = " ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.,:!?-+/'()&@#%$";
+const SCENE_INTERVAL = 10000;
 
 // ─── Audio ───────────────────────────────────────────────────
 const createClickSound = (() => {
@@ -14,18 +18,18 @@ const createClickSound = (() => {
       const filter = ctx.createBiquadFilter();
       osc.type = "square";
       osc.frequency.setValueAtTime(800 + Math.random() * 600, now);
-      osc.frequency.exponentialRampToValueAtTime(200, now + 0.015);
+      osc.frequency.exponentialRampToValueAtTime(200, now + 0.012);
       filter.type = "bandpass"; filter.frequency.value = 1200; filter.Q.value = 2;
-      gain.gain.setValueAtTime(0.02, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.03);
+      gain.gain.setValueAtTime(0.015, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.025);
       osc.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
-      osc.start(now); osc.stop(now + 0.04);
+      osc.start(now); osc.stop(now + 0.03);
     } catch (e) { /* silent */ }
   };
 })();
 
-// ─── Flap Component ─────────────────────────────────────────
-function Flap({ targetChar, delay = 0, size = "md" }) {
+// ─── Single Flap Cell ────────────────────────────────────────
+function Flap({ targetChar, delay = 0 }) {
   const [cur, setCur] = useState(" ");
   const [flipping, setFlipping] = useState(false);
   const [topC, setTopC] = useState(" ");
@@ -42,7 +46,7 @@ function Flap({ targetChar, delay = 0, size = "md" }) {
         const n = queue.current.shift();
         requestAnimationFrame(() => doFlip(to, n));
       }
-    }, 55);
+    }, 50);
   }, []);
 
   useEffect(() => {
@@ -58,55 +62,78 @@ function Flap({ targetChar, delay = 0, size = "md" }) {
     return () => { clearTimeout(d); if (timer.current) clearTimeout(timer.current); };
   }, [targetChar]);
 
-  const dims = { sm: [26, 38, 28, 3], md: [44, 66, 52, 5], lg: [56, 84, 64, 6] }[size] || [44, 66, 52, 5];
-  const [w, h, fs, br] = dims;
-
   const halfSt = (isTop) => ({
     position: "absolute", width: "100%", height: "50%",
     top: isTop ? 0 : "50%", overflow: "hidden",
-    background: isTop ? "linear-gradient(180deg, #2c2c2a 0%, #232321 100%)" : "linear-gradient(180deg, #1f1f1d 0%, #1a1a18 100%)",
-    borderRadius: isTop ? `${br}px ${br}px 0 0` : `0 0 ${br}px ${br}px`,
-    borderTop: isTop ? "none" : "1px solid #0a0a0a", zIndex: 1,
+    background: isTop
+      ? "linear-gradient(180deg, #2a2a28 0%, #222220 100%)"
+      : "linear-gradient(180deg, #1d1d1b 0%, #191917 100%)",
+    borderRadius: isTop ? "3px 3px 0 0" : "0 0 3px 3px",
+    borderTop: isTop ? "none" : "1px solid #0a0a0a",
+    zIndex: 1,
   });
+
   const charSt = (isTop) => ({
-    fontFamily: "'Courier New', monospace", fontWeight: 700, fontSize: fs,
-    color: "#f0e8d0", lineHeight: `${h}px`,
-    position: "absolute", top: isTop ? 0 : `-${h / 2}px`,
-    width: "100%", textAlign: "center", userSelect: "none",
+    fontFamily: "'Courier New', 'SF Mono', monospace",
+    fontWeight: 700,
+    fontSize: "clamp(18px, 3.2vw, 32px)",
+    color: "#f0e8d0",
+    lineHeight: "var(--cell-h)",
+    position: "absolute",
+    top: isTop ? 0 : "calc(var(--cell-h) / -2)",
+    width: "100%",
+    textAlign: "center",
+    userSelect: "none",
   });
 
   return (
-    <div style={{ width: w, height: h, position: "relative", perspective: 300, margin: "0 1px" }}>
+    <div className="flap-cell">
       {flipping && <div style={{ ...halfSt(false), zIndex: 0 }}><span style={charSt(false)}>{nextC}</span></div>}
       <div style={{ ...halfSt(true), zIndex: 2 }}><span style={charSt(true)}>{flipping ? nextC : cur}</span></div>
       <div style={{ ...halfSt(false), zIndex: 1 }}><span style={charSt(false)}>{cur}</span></div>
       {flipping && (
-        <div style={{ ...halfSt(true), zIndex: 10, transformOrigin: "bottom center", animation: "flapDown 55ms linear forwards", backfaceVisibility: "hidden" }}>
+        <div style={{ ...halfSt(true), zIndex: 10, transformOrigin: "bottom center", animation: "flapDown 50ms linear forwards", backfaceVisibility: "hidden" }}>
           <span style={charSt(true)}>{topC}</span>
         </div>
       )}
-      <div style={{ position: "absolute", top: "50%", left: 0, right: 0, height: 2, background: "#0a0a0a", zIndex: 20, transform: "translateY(-1px)" }} />
-      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: "30%", background: "linear-gradient(180deg, rgba(255,255,255,0.04) 0%, transparent 100%)", borderRadius: `${br}px ${br}px 0 0`, zIndex: 21, pointerEvents: "none" }} />
+      {/* Hinge line */}
+      <div style={{ position: "absolute", top: "50%", left: 0, right: 0, height: "1.5px", background: "#0a0a0a", zIndex: 20, transform: "translateY(-0.75px)" }} />
+      {/* Top highlight */}
+      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: "30%", background: "linear-gradient(180deg, rgba(255,255,255,0.035) 0%, transparent 100%)", borderRadius: "3px 3px 0 0", zIndex: 21, pointerEvents: "none" }} />
     </div>
   );
 }
 
-function FlapRow({ text, length, delay = 0, size = "md" }) {
-  const padded = (text || "").toUpperCase().padEnd(length, " ").slice(0, length);
+// ─── Full Grid Board ─────────────────────────────────────────
+function Board({ grid }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
-      {padded.split("").map((c, i) => <Flap key={i} targetChar={c} delay={delay + i * 25} size={size} />)}
+    <div className="board-grid">
+      {grid.map((row, r) => (
+        <div key={r} className="board-row">
+          {row.split("").map((c, col) => (
+            <Flap key={col} targetChar={c} delay={r * 80 + col * 20} />
+          ))}
+        </div>
+      ))}
     </div>
-  );
-}
-
-function LabelTag({ text, color = "#d4a853" }) {
-  return (
-    <div style={{ display: "inline-block", padding: "3px 14px", borderRadius: 4, background: color, color: "#0d0d0d", fontSize: 10, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", fontFamily: "'Helvetica Neue', sans-serif" }}>{text}</div>
   );
 }
 
 // ─── Helpers ─────────────────────────────────────────────────
+function padRow(text) {
+  return text.toUpperCase().padEnd(COLS, " ").slice(0, COLS);
+}
+
+function emptyGrid() {
+  return Array(ROWS).fill("".padEnd(COLS, " "));
+}
+
+function centerText(text) {
+  const t = text.toUpperCase().slice(0, COLS);
+  const pad = Math.max(0, Math.floor((COLS - t.length) / 2));
+  return (" ".repeat(pad) + t).padEnd(COLS, " ");
+}
+
 function wrapText(text, lineLen) {
   const words = text.split(" "); const lines = []; let line = "";
   for (const w of words) {
@@ -123,7 +150,7 @@ function useTime() {
   return now;
 }
 
-// ─── Quote Hook (DummyJSON — free, no key, CORS enabled) ────
+// ─── Quote Hook (DummyJSON) ──────────────────────────────────
 const FALLBACK_QUOTES = [
   { quote: "THE ONLY WAY TO DO GREAT WORK IS TO LOVE WHAT YOU DO", author: "STEVE JOBS" },
   { quote: "SIMPLICITY IS THE ULTIMATE SOPHISTICATION", author: "DA VINCI" },
@@ -133,10 +160,8 @@ const FALLBACK_QUOTES = [
   { quote: "STAY HUNGRY STAY FOOLISH", author: "STEWART BRAND" },
   { quote: "FIRST DO IT THEN DO IT RIGHT THEN DO IT BETTER", author: "ADDY OSMANI" },
   { quote: "SHIP EARLY SHIP OFTEN", author: "REID HOFFMAN" },
-  { quote: "THE BEST ERROR MESSAGE IS THE ONE THAT NEVER SHOWS UP", author: "THOMAS FUCHS" },
   { quote: "MEASURE WHAT MATTERS", author: "JOHN DOERR" },
   { quote: "ANY SUFFICIENTLY ADVANCED TECHNOLOGY IS INDISTINGUISHABLE FROM MAGIC", author: "ARTHUR C CLARKE" },
-  { quote: "IF YOU WANT TO GO FAST GO ALONE IF FAR GO TOGETHER", author: "AFRICAN PROVERB" },
 ];
 
 function useQuote() {
@@ -147,26 +172,17 @@ function useQuote() {
   const fetchQuote = useCallback(async () => {
     setLoading(true);
     try {
-      // DummyJSON — free, no key, CORS enabled, reliable
       const res = await fetch("https://dummyjson.com/quotes/random");
-      if (!res.ok) throw new Error("API error");
+      if (!res.ok) throw new Error();
       const data = await res.json();
-      setQuote({
-        quote: (data.quote || "").toUpperCase(),
-        author: (data.author || "UNKNOWN").toUpperCase(),
-      });
-    } catch (e) {
-      // Try QuoteSlate as backup
+      setQuote({ quote: (data.quote || "").toUpperCase(), author: (data.author || "UNKNOWN").toUpperCase() });
+    } catch {
       try {
         const res2 = await fetch("https://quoteslate.vercel.app/api/quotes/random?maxLength=90");
-        if (!res2.ok) throw new Error("Backup error");
+        if (!res2.ok) throw new Error();
         const data2 = await res2.json();
-        setQuote({
-          quote: (data2.quote || "").toUpperCase(),
-          author: (data2.author || "UNKNOWN").toUpperCase(),
-        });
-      } catch (e2) {
-        // Fallback to hardcoded
+        setQuote({ quote: (data2.quote || "").toUpperCase(), author: (data2.author || "UNKNOWN").toUpperCase() });
+      } catch {
         const fb = FALLBACK_QUOTES[fallbackIdx.current % FALLBACK_QUOTES.length];
         fallbackIdx.current++;
         setQuote(fb);
@@ -179,7 +195,7 @@ function useQuote() {
   return { quote, loading, fetchQuote };
 }
 
-// ─── Weather Hook (Open-Meteo — free, no key, CORS enabled) ─
+// ─── Weather Hook (Open-Meteo) ───────────────────────────────
 const CITIES = [
   { name: "MUMBAI", lat: 19.076, lon: 72.8777 },
   { name: "NEW YORK", lat: 40.7128, lon: -74.006 },
@@ -191,20 +207,12 @@ const CITIES = [
   { name: "SAN FRANCISCO", lat: 37.7749, lon: -122.4194 },
 ];
 
-const WMO_CODES = {
+const WMO = {
   0: "CLEAR SKY", 1: "MAINLY CLEAR", 2: "PARTLY CLOUDY", 3: "OVERCAST",
   45: "FOGGY", 48: "RIME FOG", 51: "LIGHT DRIZZLE", 53: "DRIZZLE",
   55: "DENSE DRIZZLE", 61: "LIGHT RAIN", 63: "RAIN", 65: "HEAVY RAIN",
   71: "LIGHT SNOW", 73: "SNOW", 75: "HEAVY SNOW", 80: "RAIN SHOWERS",
-  81: "MODERATE SHOWERS", 82: "VIOLENT SHOWERS", 95: "THUNDERSTORM",
-  96: "THUNDERSTORM + HAIL", 99: "SEVERE THUNDERSTORM",
-};
-
-const WMO_ICONS = {
-  0: "☀️", 1: "🌤", 2: "⛅", 3: "☁️", 45: "🌫", 48: "🌫",
-  51: "🌦", 53: "🌦", 55: "🌧", 61: "🌧", 63: "🌧", 65: "🌧",
-  71: "🌨", 73: "🌨", 75: "❄️", 80: "🌦", 81: "🌧", 82: "⛈",
-  95: "⛈", 96: "⛈", 99: "⛈",
+  81: "MOD. SHOWERS", 82: "HEAVY SHOWERS", 95: "THUNDERSTORM",
 };
 
 function useWeather() {
@@ -221,23 +229,18 @@ function useWeather() {
       const res = await fetch(
         `https://api.open-meteo.com/v1/forecast?latitude=${city.lat}&longitude=${city.lon}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&timezone=auto`
       );
-      if (!res.ok) throw new Error("Weather API error");
+      if (!res.ok) throw new Error();
       const data = await res.json();
       const c = data.current;
-      const code = c.weather_code;
       setWeather({
         city: city.name,
         temp: Math.round(c.temperature_2m),
         humidity: c.relative_humidity_2m,
         wind: Math.round(c.wind_speed_10m),
-        condition: WMO_CODES[code] || "UNKNOWN",
-        icon: WMO_ICONS[code] || "🌡",
+        condition: WMO[c.weather_code] || "UNKNOWN",
       });
-    } catch (e) {
-      setWeather({
-        city: city.name, temp: "--", humidity: "--", wind: "--",
-        condition: "DATA UNAVAILABLE", icon: "❓",
-      });
+    } catch {
+      setWeather({ city: city.name, temp: "--", humidity: "--", wind: "--", condition: "UNAVAILABLE" });
     }
     setLoading(false);
   }, []);
@@ -251,119 +254,108 @@ function useWeather() {
   return { weather, loading, fetchWeather, nextCity };
 }
 
-// ─── Scene Components ───────────────────────────────────────
-function QuoteScene({ quote, loading }) {
-  if (loading || !quote) {
-    return (
-      <div style={{ display: "flex", flexDirection: "column", gap: 4, alignItems: "center" }}>
-        <div style={{ marginBottom: 8 }}><LabelTag text="Quote" color="#d4a853" /></div>
-        <FlapRow text="LOADING..." length={22} delay={0} size="md" />
-      </div>
-    );
+// ─── Grid Builders ───────────────────────────────────────────
+function quoteGrid(q) {
+  if (!q) return emptyGrid();
+  const lines = wrapText(q.quote, COLS);
+  const authorLine = "- " + q.author;
+  const allLines = [...lines.slice(0, ROWS - 2), "", authorLine];
+  // Center vertically
+  const content = allLines.slice(0, ROWS);
+  while (content.length < ROWS) content.push("");
+  // If fewer lines, pad top
+  const textLines = lines.slice(0, ROWS - 2);
+  const totalContent = textLines.length + 2; // text + blank + author
+  const topPad = Math.max(0, Math.floor((ROWS - totalContent) / 2));
+  const grid = emptyGrid();
+  for (let i = 0; i < textLines.length; i++) {
+    if (topPad + i < ROWS) grid[topPad + i] = centerText(textLines[i]);
   }
-  const lines = wrapText(quote.quote, 22).slice(0, 4);
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 4, alignItems: "center" }}>
-      <div style={{ marginBottom: 8 }}><LabelTag text="Quote" color="#d4a853" /></div>
-      {lines.map((l, i) => <FlapRow key={i} text={l} length={22} delay={i * 180} size="md" />)}
-      <div style={{ height: 10 }} />
-      <FlapRow text={"- " + quote.author} length={22} delay={lines.length * 180 + 150} size="sm" />
-    </div>
-  );
+  const authorRow = topPad + textLines.length + 1;
+  if (authorRow < ROWS) grid[authorRow] = centerText(authorLine);
+  return grid;
 }
 
-function ClockScene({ now }) {
+function clockGrid(now) {
   const h = now.getHours().toString().padStart(2, "0");
   const m = now.getMinutes().toString().padStart(2, "0");
   const s = now.getSeconds().toString().padStart(2, "0");
   const days = ["SUNDAY", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"];
-  const months = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "center" }}>
-      <div style={{ marginBottom: 8 }}><LabelTag text="Local Time" color="#6bba7b" /></div>
-      <FlapRow text={`  ${h} : ${m} : ${s}  `} length={14} delay={0} size="lg" />
-      <div style={{ height: 8 }} />
-      <FlapRow text={days[now.getDay()]} length={12} delay={100} size="md" />
-      <FlapRow text={`${months[now.getMonth()]} ${now.getDate()} ${now.getFullYear()}`} length={14} delay={200} size="sm" />
-    </div>
-  );
+  const months = ["JANUARY", "FEBRUARY", "MARCH", "APRIL", "MAY", "JUNE", "JULY", "AUGUST", "SEPTEMBER", "OCTOBER", "NOVEMBER", "DECEMBER"];
+  const grid = emptyGrid();
+  grid[1] = centerText(`${h} : ${m} : ${s}`);
+  grid[3] = centerText(days[now.getDay()]);
+  grid[4] = centerText(`${months[now.getMonth()]} ${now.getDate()}, ${now.getFullYear()}`);
+  return grid;
 }
 
-function WeatherScene({ weather, loading }) {
-  if (loading || !weather) {
-    return (
-      <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "center" }}>
-        <div style={{ marginBottom: 8 }}><LabelTag text="Weather" color="#5ba4d9" /></div>
-        <FlapRow text="FETCHING..." length={14} delay={0} size="md" />
-      </div>
-    );
+function weatherGrid(w) {
+  if (!w) return emptyGrid();
+  const grid = emptyGrid();
+  grid[0] = centerText(w.city);
+  grid[2] = centerText(`${w.temp}C  ${w.condition}`);
+  grid[4] = centerText(`WIND ${w.wind} KM/H`);
+  grid[5] = centerText(`HUMIDITY ${w.humidity}%`);
+  return grid;
+}
+
+function departureGrid() {
+  const grid = emptyGrid();
+  grid[0] = padRow("DEST       TIME  STATUS");
+  grid[1] = padRow("MUMBAI BOM 0645  ON TIME ");
+  grid[2] = padRow("DELHI DEL  0830  BOARDING");
+  grid[3] = padRow("TOKYO NRT  1115  DELAYED ");
+  grid[4] = padRow("NEW YRK JFK1400  ON TIME ");
+  grid[5] = padRow("LONDON LHR 1730  ON TIME ");
+  return grid;
+}
+
+function customGrid(lines) {
+  const grid = emptyGrid();
+  const wrapped = [];
+  for (const l of lines) wrapped.push(...wrapText(l.toUpperCase(), COLS));
+  const content = wrapped.slice(0, ROWS);
+  const topPad = Math.max(0, Math.floor((ROWS - content.length) / 2));
+  for (let i = 0; i < content.length; i++) {
+    if (topPad + i < ROWS) grid[topPad + i] = centerText(content[i]);
   }
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "center" }}>
-      <div style={{ marginBottom: 8 }}><LabelTag text="Live Weather" color="#5ba4d9" /></div>
-      <FlapRow text={weather.city} length={14} delay={0} size="lg" />
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", margin: "8px 0" }}>
-        <span style={{ fontSize: 52 }}>{weather.icon}</span>
-      </div>
-      <FlapRow text={`${weather.temp}C`} length={5} delay={100} size="md" />
-      <div style={{ height: 2 }} />
-      <FlapRow text={weather.condition} length={22} delay={200} size="sm" />
-      <div style={{ height: 2 }} />
-      <FlapRow text={`WIND ${weather.wind} KM/H  HUM ${weather.humidity}%`} length={22} delay={350} size="sm" />
-    </div>
-  );
+  return grid;
 }
 
-function DepartureScene() {
-  const flights = [
-    { dest: "MUMBAI BOM", time: "06:45", status: "ON TIME", gate: "A12" },
-    { dest: "DELHI DEL", time: "08:30", status: "BOARDING", gate: "B07" },
-    { dest: "TOKYO NRT", time: "11:15", status: "DELAYED", gate: "C22" },
-    { dest: "NEW YORK JFK", time: "14:00", status: "ON TIME", gate: "D05" },
-  ];
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 3, alignItems: "center" }}>
-      <div style={{ marginBottom: 8 }}><LabelTag text="Departures" color="#e07850" /></div>
-      <div style={{ display: "flex", gap: 6, marginBottom: 6 }}>
-        {[["DESTINATION", 130], ["TIME", 55], ["STATUS", 88], ["GATE", 38]].map(([h, w]) => (
-          <span key={h} style={{ color: "rgba(212,168,83,0.35)", fontSize: 9, letterSpacing: 1.5, fontFamily: "'Helvetica Neue', sans-serif", fontWeight: 600, width: w, textAlign: "center" }}>{h}</span>
-        ))}
-      </div>
-      {flights.map((f, i) => (
-        <div key={i} style={{ display: "flex", gap: 3, alignItems: "center" }}>
-          <FlapRow text={f.dest} length={12} delay={i * 250} size="sm" />
-          <FlapRow text={f.time} length={5} delay={i * 250 + 60} size="sm" />
-          <FlapRow text={f.status} length={8} delay={i * 250 + 120} size="sm" />
-          <FlapRow text={f.gate} length={3} delay={i * 250 + 180} size="sm" />
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function CustomScene({ lines }) {
-  const wrapped = []; for (const l of lines) wrapped.push(...wrapText(l, 22));
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 4, alignItems: "center" }}>
-      <div style={{ marginBottom: 8 }}><LabelTag text="Message" color="#b07cdb" /></div>
-      {wrapped.slice(0, 5).map((l, i) => <FlapRow key={i} text={l} length={22} delay={i * 180} size="md" />)}
-    </div>
-  );
-}
-
-// ─── Main Board ─────────────────────────────────────────────
+// ─── Main App ────────────────────────────────────────────────
 export default function SolariBoard() {
   const now = useTime();
-  const { quote, loading: quoteLoading, fetchQuote } = useQuote();
-  const { weather, loading: weatherLoading, nextCity } = useWeather();
+  const { quote, loading: qLoading, fetchQuote } = useQuote();
+  const { weather, loading: wLoading, nextCity } = useWeather();
   const [scene, setScene] = useState("quote");
+  const [grid, setGrid] = useState(emptyGrid());
   const [customText, setCustomText] = useState("");
-  const [showCustomInput, setShowCustomInput] = useState(false);
   const [customLines, setCustomLines] = useState(["HELLO FROM", "FLIPFLAP", "BUILD. SHIP. REPEAT."]);
   const [autoRotate, setAutoRotate] = useState(true);
+  const [showCustom, setShowCustom] = useState(false);
   const autoRef = useRef(null);
   const counterRef = useRef(0);
-  const [sceneKey, setSceneKey] = useState(0);
+
+  // Update grid when scene data changes
+  useEffect(() => {
+    if (scene === "quote" && quote) setGrid(quoteGrid(quote));
+  }, [scene, quote]);
+
+  useEffect(() => {
+    if (scene === "clock") setGrid(clockGrid(now));
+  }, [scene, now]);
+
+  useEffect(() => {
+    if (scene === "weather" && weather) setGrid(weatherGrid(weather));
+  }, [scene, weather]);
+
+  useEffect(() => {
+    if (scene === "departures") setGrid(departureGrid());
+  }, [scene]);
+
+  useEffect(() => {
+    if (scene === "custom") setGrid(customGrid(customLines));
+  }, [scene, customLines]);
 
   // Auto-rotate
   useEffect(() => {
@@ -373,139 +365,302 @@ export default function SolariBoard() {
       const pattern = ["quote", "clock", "weather", "quote", "departures", "clock", "weather"];
       const scn = pattern[counterRef.current % pattern.length];
       setScene(scn);
-      setSceneKey(k => k + 1);
       if (scn === "quote") fetchQuote();
       if (scn === "weather") nextCity();
-    }, 10000);
+    }, SCENE_INTERVAL);
     return () => clearInterval(autoRef.current);
   }, [autoRotate, fetchQuote, nextCity]);
 
   const selectScene = (s) => {
-    setAutoRotate(false);
-    setScene(s);
-    setSceneKey(k => k + 1);
-    setShowCustomInput(s === "custom");
+    setAutoRotate(false); setScene(s); setShowCustom(s === "custom");
     if (s === "quote") fetchQuote();
     if (s === "weather") nextCity();
   };
 
   const handleCustomSubmit = () => {
     const lines = customText.split("\n").filter(l => l.trim());
-    if (lines.length) {
-      setCustomLines(lines.map(l => l.toUpperCase()));
-      setScene("custom");
-      setSceneKey(k => k + 1);
-      setAutoRotate(false);
-    }
+    if (lines.length) { setCustomLines(lines); setScene("custom"); setAutoRotate(false); }
   };
 
   const sceneBtns = [
-    { id: "quote", label: "Quotes", icon: "✦", color: "#d4a853" },
-    { id: "clock", label: "Clock", icon: "◷", color: "#6bba7b" },
-    { id: "weather", label: "Weather", icon: "◈", color: "#5ba4d9" },
-    { id: "departures", label: "Flights", icon: "▷", color: "#e07850" },
-    { id: "custom", label: "Custom", icon: "✎", color: "#b07cdb" },
+    { id: "quote", label: "Quotes", color: "#d4a853" },
+    { id: "clock", label: "Clock", color: "#6bba7b" },
+    { id: "weather", label: "Weather", color: "#5ba4d9" },
+    { id: "departures", label: "Flights", color: "#e07850" },
+    { id: "custom", label: "Custom", color: "#b07cdb" },
   ];
 
   return (
-    <div style={{ minHeight: "100vh", background: "#0b0b0a", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", fontFamily: "'Helvetica Neue', sans-serif", padding: "20px 8px", overflow: "hidden" }}>
+    <div className="solari-app">
       <style>{`
-        @keyframes flapDown { 0% { transform: rotateX(0deg); } 100% { transform: rotateX(-90deg); } }
-        @keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-        textarea:focus { outline: none; border-color: #b07cdb !important; }
-        button { cursor: pointer; font-family: 'Helvetica Neue', sans-serif; }
-        button:active { transform: scale(0.97); }
+        @keyframes flapDown {
+          0% { transform: rotateX(0deg); }
+          100% { transform: rotateX(-90deg); }
+        }
+        @keyframes fadeUp {
+          from { opacity: 0; transform: translateY(8px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+
+        :root {
+          --cell-w: clamp(22px, 3.8vw, 38px);
+          --cell-h: clamp(32px, 5.4vw, 54px);
+          --cell-gap: clamp(2px, 0.4vw, 4px);
+          --board-bg: #111110;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        .solari-app {
+          min-height: 100vh;
+          background: #0b0b0a;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          font-family: 'Helvetica Neue', -apple-system, sans-serif;
+          padding: 20px 8px;
+          overflow: hidden;
+        }
+
+        .board-housing {
+          background: linear-gradient(180deg, #161614 0%, var(--board-bg) 30%, #0d0d0c 100%);
+          border-radius: 14px;
+          padding: 20px 16px 16px;
+          max-width: 920px;
+          width: 100%;
+          position: relative;
+          box-shadow:
+            0 0 0 1px rgba(255,255,255,0.04),
+            0 30px 80px rgba(0,0,0,0.8),
+            inset 0 1px 0 rgba(255,255,255,0.03);
+        }
+
+        .board-grid {
+          display: flex;
+          flex-direction: column;
+          gap: var(--cell-gap);
+          align-items: center;
+          padding: 12px;
+          background: #0a0a09;
+          border-radius: 8px;
+          border: 1px solid rgba(255,255,255,0.03);
+        }
+
+        .board-row {
+          display: flex;
+          gap: var(--cell-gap);
+        }
+
+        .flap-cell {
+          width: var(--cell-w);
+          height: var(--cell-h);
+          position: relative;
+          perspective: 300px;
+          border-radius: 3px;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+        }
+
+        .controls {
+          display: flex;
+          justify-content: center;
+          gap: 6px;
+          margin-top: 14px;
+          flex-wrap: wrap;
+        }
+
+        .scene-btn {
+          background: transparent;
+          border: 1px solid rgba(255,255,255,0.06);
+          color: rgba(255,255,255,0.3);
+          padding: 6px 14px;
+          border-radius: 20px;
+          font-size: 11px;
+          letter-spacing: 1px;
+          cursor: pointer;
+          transition: all 0.3s;
+          font-family: 'Helvetica Neue', sans-serif;
+        }
+
+        .scene-btn.active {
+          background: var(--btn-color-bg);
+          border-color: var(--btn-color-border);
+          color: var(--btn-color);
+        }
+
+        .scene-btn:active { transform: scale(0.97); }
+
+        .meta-row {
+          display: flex;
+          justify-content: center;
+          margin-top: 10px;
+          gap: 12px;
+          align-items: center;
+          flex-wrap: wrap;
+        }
+
+        .toggle-btn {
+          background: none;
+          border: none;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          font-size: 10px;
+          letter-spacing: 2px;
+          text-transform: uppercase;
+          cursor: pointer;
+          font-family: 'Helvetica Neue', sans-serif;
+        }
+
+        .pill-btn {
+          background: none;
+          border: 1px solid rgba(255,255,255,0.1);
+          border-radius: 12px;
+          color: rgba(255,255,255,0.35);
+          font-size: 10px;
+          padding: 3px 10px;
+          letter-spacing: 1px;
+          cursor: pointer;
+          font-family: 'Helvetica Neue', sans-serif;
+        }
+
+        .custom-area {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          margin-top: 12px;
+          gap: 8px;
+          animation: fadeUp 0.3s ease-out;
+        }
+
+        .custom-area textarea {
+          width: 300px;
+          max-width: 90%;
+          background: #111;
+          border: 1px solid rgba(176,124,219,0.2);
+          color: #f0e8d0;
+          border-radius: 10px;
+          padding: 10px 14px;
+          font-size: 13px;
+          font-family: 'Courier New', monospace;
+          letter-spacing: 1px;
+          resize: none;
+          text-transform: uppercase;
+        }
+        .custom-area textarea:focus { outline: none; border-color: #b07cdb; }
+
+        .custom-area button {
+          background: linear-gradient(180deg, rgba(176,124,219,0.2), rgba(176,124,219,0.1));
+          border: 1px solid rgba(176,124,219,0.3);
+          color: #b07cdb;
+          padding: 7px 24px;
+          border-radius: 8px;
+          font-size: 11px;
+          letter-spacing: 3px;
+          cursor: pointer;
+          text-transform: uppercase;
+          font-weight: 600;
+        }
+
+        .corner-screw {
+          position: absolute;
+          width: 10px;
+          height: 10px;
+          border-radius: 50%;
+          background: radial-gradient(circle at 35% 35%, #333, #1a1a1a);
+          box-shadow: inset 0 1px 2px rgba(0,0,0,0.6);
+        }
+        .corner-screw::after {
+          content: '';
+          position: absolute;
+          top: 50%;
+          left: 20%;
+          right: 20%;
+          height: 1px;
+          background: #111;
+          transform: translateY(-0.5px) rotate(45deg);
+        }
+
+        .footer {
+          margin-top: 16px;
+          text-align: center;
+          color: rgba(255,255,255,0.06);
+          font-size: 8px;
+          letter-spacing: 2px;
+        }
+
+        @media (max-width: 520px) {
+          :root {
+            --cell-w: clamp(13px, 4vw, 22px);
+            --cell-h: clamp(20px, 5.6vw, 32px);
+            --cell-gap: 1.5px;
+          }
+          .board-housing { padding: 14px 8px 12px; border-radius: 10px; }
+          .board-grid { padding: 8px; }
+        }
       `}</style>
 
       {/* Ambient glow */}
-      <div style={{ position: "fixed", top: "-30%", left: "20%", width: "60%", height: "50%", background: "radial-gradient(ellipse, rgba(212,168,83,0.04) 0%, transparent 70%)", pointerEvents: "none" }} />
+      <div style={{ position: "fixed", top: "-30%", left: "20%", width: "60%", height: "50%", background: "radial-gradient(ellipse, rgba(212,168,83,0.03) 0%, transparent 70%)", pointerEvents: "none" }} />
 
       {/* Board */}
-      <div style={{ background: "linear-gradient(180deg, #191816 0%, #121110 50%, #0e0d0c 100%)", borderRadius: 16, padding: "28px 16px 20px", maxWidth: 780, width: "100%", boxShadow: "0 0 0 1px rgba(212,168,83,0.08), 0 30px 80px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.03)", position: "relative" }}>
-
+      <div className="board-housing">
         {/* Gold accent strip */}
-        <div style={{ position: "absolute", top: 0, left: 32, right: 32, height: 2, background: "linear-gradient(90deg, transparent, #d4a853, transparent)", opacity: 0.5, borderRadius: "0 0 2px 2px" }} />
+        <div style={{ position: "absolute", top: 0, left: 40, right: 40, height: 2, background: "linear-gradient(90deg, transparent, #d4a853, transparent)", opacity: 0.4, borderRadius: "0 0 2px 2px" }} />
 
-        {/* Header */}
-        <div style={{ textAlign: "center", marginBottom: 20, display: "flex", alignItems: "center", justifyContent: "center", gap: 12 }}>
-          <div style={{ flex: 1, height: 1, background: "linear-gradient(90deg, transparent, rgba(212,168,83,0.2), transparent)" }} />
-          <span style={{ color: "#d4a853", fontSize: 10, letterSpacing: 5, fontWeight: 500, opacity: 0.7 }}>SOLARI DI UDINE</span>
-          <div style={{ flex: 1, height: 1, background: "linear-gradient(90deg, transparent, rgba(212,168,83,0.2), transparent)" }} />
-        </div>
+        {/* The Grid */}
+        <Board grid={grid} />
 
-        {/* Scene area */}
-        <div style={{ minHeight: 310, display: "flex", alignItems: "center", justifyContent: "center" }} key={sceneKey}>
-          <div style={{ animation: "fadeUp 0.3s ease-out" }}>
-            {scene === "quote" && <QuoteScene quote={quote} loading={quoteLoading} />}
-            {scene === "clock" && <ClockScene now={now} />}
-            {scene === "weather" && <WeatherScene weather={weather} loading={weatherLoading} />}
-            {scene === "departures" && <DepartureScene />}
-            {scene === "custom" && <CustomScene lines={customLines} />}
-          </div>
-        </div>
-
-        {/* Scene selector buttons */}
-        <div style={{ display: "flex", justifyContent: "center", gap: 6, marginTop: 16, flexWrap: "wrap" }}>
+        {/* Scene buttons */}
+        <div className="controls">
           {sceneBtns.map(b => (
-            <button key={b.id} onClick={() => selectScene(b.id)} style={{
-              background: scene === b.id ? `${b.color}18` : "transparent",
-              border: `1px solid ${scene === b.id ? b.color + "60" : "rgba(255,255,255,0.06)"}`,
-              color: scene === b.id ? b.color : "rgba(255,255,255,0.3)",
-              padding: "6px 14px", borderRadius: 20, fontSize: 11, letterSpacing: 1,
-              transition: "all 0.3s", display: "flex", alignItems: "center", gap: 5,
-            }}>
-              <span style={{ fontSize: 12 }}>{b.icon}</span>{b.label}
+            <button
+              key={b.id}
+              className={`scene-btn ${scene === b.id ? "active" : ""}`}
+              style={{
+                "--btn-color": b.color,
+                "--btn-color-bg": b.color + "18",
+                "--btn-color-border": b.color + "60",
+              }}
+              onClick={() => selectScene(b.id)}
+            >
+              {b.label}
             </button>
           ))}
         </div>
 
-        {/* Controls row */}
-        <div style={{ display: "flex", justifyContent: "center", marginTop: 12, gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-          <button onClick={() => setAutoRotate(!autoRotate)} style={{
-            background: "none", border: "none", display: "flex", alignItems: "center", gap: 6,
-            color: autoRotate ? "#d4a853" : "rgba(255,255,255,0.2)", fontSize: 10, letterSpacing: 2, textTransform: "uppercase",
-          }}>
+        {/* Meta controls */}
+        <div className="meta-row">
+          <button className="toggle-btn" onClick={() => setAutoRotate(!autoRotate)}
+            style={{ color: autoRotate ? "#d4a853" : "rgba(255,255,255,0.2)" }}>
             <span style={{ width: 28, height: 14, borderRadius: 7, background: autoRotate ? "#d4a85340" : "rgba(255,255,255,0.06)", display: "inline-flex", alignItems: "center", padding: "0 2px", transition: "all 0.3s" }}>
               <span style={{ width: 10, height: 10, borderRadius: "50%", background: autoRotate ? "#d4a853" : "rgba(255,255,255,0.2)", transform: autoRotate ? "translateX(14px)" : "translateX(0)", transition: "all 0.3s" }} />
             </span>
-            Auto-rotate
+            Auto
           </button>
-          {scene === "quote" && (
-            <button onClick={fetchQuote} style={{ background: "none", border: "1px solid rgba(212,168,83,0.15)", borderRadius: 12, color: "rgba(212,168,83,0.5)", fontSize: 10, padding: "3px 10px", letterSpacing: 1 }}>
-              {quoteLoading ? "Loading..." : "New Quote →"}
-            </button>
-          )}
-          {scene === "weather" && (
-            <button onClick={nextCity} style={{ background: "none", border: "1px solid rgba(91,164,217,0.15)", borderRadius: 12, color: "rgba(91,164,217,0.5)", fontSize: 10, padding: "3px 10px", letterSpacing: 1 }}>
-              {weatherLoading ? "Loading..." : "Next City →"}
-            </button>
-          )}
+          {scene === "quote" && <button className="pill-btn" onClick={fetchQuote}>{qLoading ? "..." : "New Quote →"}</button>}
+          {scene === "weather" && <button className="pill-btn" onClick={nextCity}>{wLoading ? "..." : "Next City →"}</button>}
         </div>
 
         {/* Custom input */}
-        {showCustomInput && (
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginTop: 14, gap: 8, animation: "fadeUp 0.3s ease-out" }}>
+        {showCustom && (
+          <div className="custom-area">
             <textarea value={customText} onChange={e => setCustomText(e.target.value)}
-              placeholder={"Type your message...\nUse new lines for rows"} rows={3}
-              style={{ width: 280, background: "#111", border: "1px solid rgba(176,124,219,0.2)", color: "#f0e8d0", borderRadius: 10, padding: "10px 14px", fontSize: 13, fontFamily: "'Courier New', monospace", letterSpacing: 1, resize: "none", textTransform: "uppercase" }} />
-            <button onClick={handleCustomSubmit} style={{ background: "linear-gradient(180deg, rgba(176,124,219,0.2), rgba(176,124,219,0.1))", border: "1px solid rgba(176,124,219,0.3)", color: "#b07cdb", padding: "7px 24px", borderRadius: 8, fontSize: 11, letterSpacing: 3, textTransform: "uppercase", fontWeight: 600 }}>Flip It</button>
+              placeholder={"Type your message...\nEach line = one row"} rows={3} />
+            <button onClick={handleCustomSubmit}>Flip It</button>
           </div>
         )}
 
         {/* Corner screws */}
-        {[{ top: 8, left: 8 }, { top: 8, right: 8 }, { bottom: 8, left: 8 }, { bottom: 8, right: 8 }].map((p, i) => (
-          <div key={i} style={{ position: "absolute", ...p, width: 10, height: 10, borderRadius: "50%", background: "radial-gradient(circle at 35% 35%, #333, #1a1a1a)", boxShadow: "inset 0 1px 2px rgba(0,0,0,0.6)" }}>
-            <div style={{ position: "absolute", top: "50%", left: "20%", right: "20%", height: 1, background: "#111", transform: "translateY(-0.5px) rotate(45deg)" }} />
-          </div>
-        ))}
+        <div className="corner-screw" style={{ top: 8, left: 8 }} />
+        <div className="corner-screw" style={{ top: 8, right: 8 }} />
+        <div className="corner-screw" style={{ bottom: 8, left: 8 }} />
+        <div className="corner-screw" style={{ bottom: 8, right: 8 }} />
       </div>
 
-      {/* Attribution */}
-      <div style={{ marginTop: 16, textAlign: "center" }}>
-        <div style={{ color: "rgba(255,255,255,0.08)", fontSize: 9, letterSpacing: 4, textTransform: "uppercase" }}>Split-Flap Display</div>
-        <div style={{ color: "rgba(255,255,255,0.06)", fontSize: 8, marginTop: 6, letterSpacing: 1 }}>
-          Quotes: DummyJSON &middot; Weather: Open-Meteo.com (CC BY 4.0)
-        </div>
+      {/* Footer */}
+      <div className="footer">
+        Quotes: DummyJSON &middot; Weather: Open-Meteo.com (CC BY 4.0)
       </div>
     </div>
   );
