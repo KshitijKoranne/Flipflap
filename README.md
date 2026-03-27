@@ -1,30 +1,40 @@
 # FlipFlap — Solari Split-Flap Display
 
-A beautiful, interactive split-flap (Solari board) display built with React + Vite. Features realistic mechanical flip animations with click sounds, live data feeds, and multiple scenes.
-
-## Scenes
-
-- **✦ Quotes** — Random inspirational quotes from [DummyJSON API](https://dummyjson.com/docs/quotes) (free, no key)
-- **◷ Clock** — Live updating time with seconds, day, and date
-- **◈ Weather** — Real weather data from [Open-Meteo](https://open-meteo.com/) (free, no key, CC BY 4.0) for 8 cities worldwide
-- **▷ Flights** — Classic airport departure board
-- **✎ Custom** — Type your own multi-line messages
+A beautiful, interactive split-flap display inspired by classic Vestaboard / Solari boards. Built with React + Vite. Live data, multiple themes, shareable links, and TV mode.
 
 ## Features
 
-- Realistic split-flap animation with sequential character cycling
-- Mechanical click sounds via Web Audio API
-- Auto-rotating scenes with 10-second intervals
-- Responsive design
-- No API keys required — all data sources are free and open
+### Scenes
+- **Quotes** — Random quotes from [DummyJSON](https://dummyjson.com/) (free, no key)
+- **Clock** — Live time with seconds, day, and date
+- **Weather** — Real weather via [Open-Meteo](https://open-meteo.com/) (free, no key). Auto-detects your location via browser geolocation, then cycles through 8 world cities
+- **Countdown** — Set any future date with a custom label. Shows days, hours, minutes, seconds
+- **Custom** — Type your own multi-line message
+
+### Interactions
+- **4 Color Themes** — Classic (gold), Neon (purple), Terminal (green), Retro (warm amber)
+- **URL Sharing** — Share custom messages via URL: `?msg=HELLO|WORLD`
+- **Sound Toggle** — Mechanical click sounds on/off
+- **Fullscreen TV Mode** — Perfect for a monitor, TV, or tablet display
+- **Keyboard Shortcuts** — `←/→` scenes, `Space` toggle auto, `M` mute, `F` fullscreen
+- **Auto-Rotate** — Cycles through scenes every 10 seconds
+- **Geolocation Weather** — Shows your city first, then cycles world cities
+- **PWA Ready** — Installable as a home screen app
+
+### URL Parameters
+- `?msg=LINE+ONE|LINE+TWO` — Open with a custom message
+- `?theme=purple` — Set theme (`classic`, `purple`, `green`, `retro`)
+- `?countdown=2026-12-31` — Open with countdown to a date
+- `?scene=clock` — Open to a specific scene
 
 ## Tech Stack
 
-- React 19 + Vite
-- CSS-in-JS (inline styles, zero dependencies)
+- React 19 + Vite (zero UI dependencies)
 - DummyJSON for quotes
-- Open-Meteo for live weather
-- Deployed on Vercel
+- Open-Meteo for weather + geocoding
+- Web Audio API for click sounds
+- CSS custom properties for themes
+- Fullscreen API for TV mode
 
 ## Development
 
@@ -35,13 +45,7 @@ npm run dev
 
 ## Deploy
 
-Push to GitHub and connect to [Vercel](https://vercel.com) — it auto-detects Vite and deploys with zero config.
-
-## Credits
-
-- Inspired by [Solari di Udine](https://en.wikipedia.org/wiki/Solari_di_Udine) split-flap displays
-- Weather data: [Open-Meteo](https://open-meteo.com/) (CC BY 4.0)
-- Quotes: [DummyJSON](https://dummyjson.com/)
+Push to GitHub → connect to [Vercel](https://vercel.com) → auto-deploys.
 
 ## License
 

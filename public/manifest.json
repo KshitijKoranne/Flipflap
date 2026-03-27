@@ -1,0 +1,16 @@
+{
+  "name": "FlipFlap — Split-Flap Display",
+  "short_name": "FlipFlap",
+  "description": "A beautiful Solari split-flap display with live quotes, weather, clock, and countdown timer.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0b0b0a",
+  "theme_color": "#0b0b0a",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
